@@ -57,22 +57,29 @@ const Chatbot = () => {
   });
 
   useEffect(() => {
-   
-    const ws = new WebSocket("ws://localhost:3000");
+    // Use the Azure WebSocket endpoint
+    const ws = new WebSocket("wss://zendeskendpoint-cadne9guf2g3bmf6.canadacentral-01.azurewebsites.net");
 
     ws.onopen = () => {
       console.log("WebSocket connected.");
     };
 
     ws.onmessage = (event) => {
-      const receivedData = JSON.parse(event.data);
+      try {
+        const receivedData = JSON.parse(event.data);
+        const botMessage = receivedData.message || "Invalid message received";
 
-      const botMessage = receivedData.message || "Invalid message received";
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { text: botMessage, isUser: false }
+        ]);
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
 
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { text: botMessage, isUser: false }
-      ]);
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
     };
 
     ws.onclose = () => {
@@ -85,7 +92,7 @@ const Chatbot = () => {
   }, []);
 
   useEffect(() => {
-
+    // Initial bot message
     setMessages((prevMessages) => [
       ...prevMessages,
       { text: "Please provide your ticket ID:", isUser: false }
@@ -98,11 +105,9 @@ const Chatbot = () => {
     const newMessages = [...messages, { text: input, isUser: true }];
     setMessages(newMessages);
 
-    
     if (step <= 2) {
       switch (step) {
         case 0:
-          // Save ticket ID
           setTicketData((prev) => ({ ...prev, ticketId: input }));
           setMessages((prevMessages) => [
             ...prevMessages,
@@ -111,7 +116,6 @@ const Chatbot = () => {
           setStep(1);
           break;
         case 1:
-          // Save email
           setTicketData((prev) => ({ ...prev, email: input }));
           setMessages((prevMessages) => [
             ...prevMessages,
@@ -120,26 +124,16 @@ const Chatbot = () => {
           setStep(2);
           break;
         case 2:
-          // Save comments
           setTicketData((prev) => ({ ...prev, comments: input }));
           setMessages((prevMessages) => [
             ...prevMessages,
             { text: "Thank you! Submitting your ticket...", isUser: false }
           ]);
 
-          // Send ticket data to the API endpoint
           const jsonPayload = {
-            type: "object",
-            properties: {
-              ticket: {
-                type: "object",
-                properties: {
-                  "ticket id": ticketData.ticketId,
-                  "email of user": ticketData.email,
-                  "all comments": input // Save the final input as comments
-                }
-              }
-            }
+            ticketId: ticketData.ticketId,
+            email: ticketData.email,
+            comments: input // Use final input as comments
           };
 
           fetch(
@@ -174,9 +168,6 @@ const Chatbot = () => {
         default:
           break;
       }
-    } else {
-     
-      setInput(""); 
     }
 
     setInput(""); 
@@ -204,6 +195,5 @@ const Chatbot = () => {
     </ChatContainer>
   );
 };
-
 
 export default Chatbot;
